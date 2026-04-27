@@ -1,0 +1,23 @@
+{
+  "event": {
+    "type": "position.geofence_exit",
+    "timestamp": "2026-04-26T22:07:00Z",
+    "vessel": {
+      "imo": 9450648,
+      "mmsi": 219018692,
+      "vesselName": "MAERSK SEMARANG"
+    },
+    "data": {
+      "geofence": {
+        "id": "gulf-of-aden",
+        "name": "Gulf of Aden HRA"
+      },
+      "position": {
+        "latitude": 12.5500,
+        "longitude": 43.3500,
+        "speedKnots": 13.8,
+        "courseDegrees": 271
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "event": {
+    "type": "eta.destination_changed",
+    "timestamp": "2026-04-25T03:48:00Z",
+    "vessel": {
+      "imo": 9595321,
+      "mmsi": 636092176,
+      "vesselName": "MAERSK SENTOSA"
+    },
+    "data": {
+      "destinationChange": {
+        "previous": "USHOU",
+        "current": "USCRP"
+      }
+    }
+  }
+}

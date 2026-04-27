@@ -1,0 +1,19 @@
+# Copy this file to `samconfig.toml` (which is gitignored) and fill in the
+# values below. Then `sam build && sam deploy` will pick the config up
+# automatically -- no need for `--guided` after the first run.
+
+version = 0.1
+
+[default.global.parameters]
+stack_name = "vessel-email-alerts"
+
+[default.deploy.parameters]
+region              = "us-east-1"
+confirm_changeset   = true
+capabilities        = "CAPABILITY_IAM"
+resolve_s3          = true
+parameter_overrides = [
+  "WebhookSecret=REPLACE_WITH_OPENSSL_RAND_HEX_32",
+  "ToAddress=you@example.com",
+  "FromAddress=you@example.com",
+]

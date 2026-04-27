@@ -1,0 +1,19 @@
+{
+  "event": {
+    "type": "eta.eta_changed",
+    "timestamp": "2026-04-24T11:05:00Z",
+    "vessel": {
+      "imo": 9839430,
+      "mmsi": 477844200,
+      "vesselName": "OOCL HONG KONG"
+    },
+    "data": {
+      "etaChange": {
+        "previousEta": "2026-04-29T06:00:00Z",
+        "currentEta": "2026-04-29T12:30:00Z",
+        "shiftMinutes": 390,
+        "destinationUnlocode": "NLRTM"
+      }
+    }
+  }
+}

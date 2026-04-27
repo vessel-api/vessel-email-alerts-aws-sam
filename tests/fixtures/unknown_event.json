@@ -1,0 +1,17 @@
+{
+  "event": {
+    "type": "vessel.flag_changed",
+    "timestamp": "2026-04-27T05:12:00Z",
+    "vessel": {
+      "imo": 9321483,
+      "mmsi": 311000456,
+      "vesselName": "BAHAMAS SPIRIT"
+    },
+    "data": {
+      "flagChange": {
+        "previous": "BS",
+        "current": "MH"
+      }
+    }
+  }
+}

@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Self-hosted vessel email alerts (vesselapi -> Lambda -> SES)
+
+Parameters:
+  WebhookSecret:
+    Type: String
+    NoEcho: true
+    Description: The secret you'll configure on the vesselapi notification.
+  ToAddress:
+    Type: String
+    Description: Verified SES recipient (the inbox the alerts go to).
+  FromAddress:
+    Type: String
+    Description: Verified SES sender identity.
+
+Resources:
+  IdempotencyTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: delivery_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: delivery_id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+
+  EmailSenderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: python3.12
+      Handler: handler.lambda_handler
+      CodeUri: ./src
+      Timeout: 10
+      MemorySize: 256
+      Environment:
+        Variables:
+          WEBHOOK_SECRET: !Ref WebhookSecret
+          TO_ADDRESS: !Ref ToAddress
+          FROM_ADDRESS: !Ref FromAddress
+          IDEMPOTENCY_TABLE: !Ref IdempotencyTable
+      Policies:
+        # DynamoDB is scoped to just this stack's table.
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IdempotencyTable
+        # SES SendEmail uses Resource: '*' deliberately. The narrower
+        # ses:FromAddress / SourceArn condition forms are finicky to author
+        # correctly across regions and identity types; the verified-identity
+        # check at SES itself is the real authorisation boundary here.
+        - Statement:
+            - Effect: Allow
+              Action: ses:SendEmail
+              Resource: '*'
+      Events:
+        Webhook:
+          Type: HttpApi
+          Properties:
+            Path: /webhook
+            Method: post
+
+Outputs:
+  WebhookUrl:
+    Description: Paste this into your vesselapi notification's webhook_url.
+    Value: !Sub 'https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/webhook'
+  IdempotencyTableName:
+    Description: DynamoDB table holding processed delivery IDs.
+    Value: !Ref IdempotencyTable

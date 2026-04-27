@@ -1,0 +1,22 @@
+{
+  "event": {
+    "type": "eta.draught_changed",
+    "timestamp": "2026-04-27T15:42:00Z",
+    "vessel": {
+      "imo": 9229831,
+      "mmsi": 636093161,
+      "vesselName": "YANTIAN EXPRESS"
+    },
+    "data": {
+      "draughtChange": {
+        "previous": 1.04,
+        "current": 10.4
+      },
+      "vesselEta": {
+        "destination": "NLRTM",
+        "eta": "2026-04-27T15:15:00Z",
+        "draught": 10.4
+      }
+    }
+  }
+}

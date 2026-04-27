@@ -1,0 +1,23 @@
+{
+  "event": {
+    "type": "port.departure",
+    "timestamp": "2026-04-23T17:42:00Z",
+    "vessel": {
+      "imo": 9776418,
+      "mmsi": 538008190,
+      "vesselName": "MSC GULSUN"
+    },
+    "data": {
+      "portEvent": {
+        "port": {
+          "unlocode": "SGSIN",
+          "name": "Singapore",
+          "country": "Singapore",
+          "latitude": 1.2655,
+          "longitude": 103.8186
+        },
+        "eventType": "DEPARTURE"
+      }
+    }
+  }
+}

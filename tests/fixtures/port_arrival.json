@@ -1,0 +1,23 @@
+{
+  "event": {
+    "type": "port.arrival",
+    "timestamp": "2026-04-22T08:14:00Z",
+    "vessel": {
+      "imo": 9811000,
+      "mmsi": 353136000,
+      "vesselName": "EVER GIVEN"
+    },
+    "data": {
+      "portEvent": {
+        "port": {
+          "unlocode": "EGSUZ",
+          "name": "Suez",
+          "country": "Egypt",
+          "latitude": 29.9668,
+          "longitude": 32.5498
+        },
+        "eventType": "ARRIVAL"
+      }
+    }
+  }
+}
