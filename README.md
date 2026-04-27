@@ -46,7 +46,25 @@ scripts/
 - Python 3.12 locally (matches the Lambda runtime).
 - An email address verified in SES in your target region. The default region
   in `samconfig.toml.example` is `us-east-1`.
-- A vesselapi API key with permission to create notifications.
+- **A vesselapi API key on a plan that includes notifications.** Notifications
+  are not part of the free tier — you need at least the *Basic* plan. See
+  the table below for what each tier allows.
+
+### vesselapi notifications by plan
+
+| Plan    | Active notifications | Vessels per notification | Delivery channels  |
+|---------|----------------------|--------------------------|--------------------|
+| Free    | 0 (notifications disabled) | —                  | —                  |
+| Basic   | up to 3              | up to 100                | webhook + WebSocket |
+| Starter | up to 5              | up to 100                | webhook + WebSocket |
+| Pro     | unlimited            | up to 100                | webhook + WebSocket |
+
+Pricing and the latest plan details: <https://vesselapi.com/pricing>. Sign up
+and grab your API key at <https://dashboard.vesselapi.com/>.
+
+For this example a single notification on the Basic plan is enough — one
+subscription watching up to 100 of your vessels, fanning out to one email
+inbox.
 
 By default a new AWS account's SES is in **sandbox mode**, which means it can
 only send to verified addresses. That's perfect for sending alerts to
