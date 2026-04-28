@@ -116,6 +116,10 @@ curl -X POST https://api.vesselapi.com/v1/notifications \
   }'
 ```
 
+`9811000` here is the *Ever Given* itself — handy if you want a vessel that
+moves often and is easy to recognise in your inbox while you're verifying the
+pipeline. Swap in whichever IMOs you actually want to watch.
+
 The `webhook_secret` here **must** match `WebhookSecret` byte-for-byte. Drop
 `event_types` to receive every event type for the watched vessels.
 
@@ -188,29 +192,37 @@ delivery.
 
 ## Cost
 
-For a personal alert pipeline (tens to hundreds of events per month):
+For a personal alert pipeline (tens to hundreds of events per month), pricing
+in `us-east-1` as of April 2026:
 
 | Component             | Pricing                          | Monthly @ 100 events |
 |-----------------------|----------------------------------|----------------------|
 | API Gateway HTTP API  | $1.00 per million requests       | ~$0.0001             |
 | Lambda                | 1M req + 400k GB-s free tier     | $0                   |
-| DynamoDB on-demand    | ~$1.25 per million writes        | ~$0.0001             |
+| DynamoDB on-demand    | $0.625 per million writes        | ~$0.0001             |
 | SES                   | $0.10 per 1,000 emails           | ~$0.01               |
 | CloudWatch Logs       | ~$0.50 per GB ingested           | pennies              |
 
 Total: somewhere between a few cents and a dollar a month. The whole stack
-scales to zero when nothing's happening.
+scales to zero when nothing's happening. AWS prices drift; check current
+rates if you scale this beyond personal use.
 
 ## Going to production
 
 The deploy above is right for "alerts to my own inbox." For wider use:
 
 1. **Move SES out of sandbox.** SES console -> Account dashboard ->
-   Request production access. Approval typically takes 24h.
+   Request production access. AWS Support's initial response typically
+   arrives within 24 hours; full approval can take longer.
 2. **Use a domain identity, not an email identity.** Add the DKIM CNAMEs SES
    gives you to your DNS. Now `From: alerts@yourdomain.com` will display as
    authenticated to recipients.
-3. **Move `WebhookSecret` to AWS Secrets Manager.** Replace the env var with
+3. **Wire up bounce and complaint handling.** Attach an SES Configuration
+   Set to the function's `send_email` calls and route `Bounce` / `Complaint`
+   events to an SNS topic (and from there into a Lambda or a dead-letter
+   queue). Without this, a single typo'd `ToAddress` can land you on the
+   SES suppression list silently.
+4. **Move `WebhookSecret` to AWS Secrets Manager.** Replace the env var with
    a secret ARN, grant the function `secretsmanager:GetSecretValue` on that
    one ARN, and read it on cold start. Currently the secret is reachable by
    anyone with `lambda:GetFunctionConfiguration` on the function -- fine for

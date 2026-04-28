@@ -5,7 +5,8 @@ Pipeline:
     2. Claim the X-Delivery-ID in DynamoDB (conditional put with TTL).
        Duplicates short-circuit with HTTP 200 so the sender stops retrying.
     3. Render the event into subject + HTML + text bodies.
-    4. SendEmail via SES.
+    4. SendEmail via SES. If SES fails, release the claim so vesselapi's
+       next retry can try again instead of being ack'd as a duplicate.
 
 Configuration is via environment variables, populated by the SAM template.
 """
@@ -26,6 +27,8 @@ from render import render_email
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+# Module-scope clients are reused across warm invocations -- one TLS handshake
+# per container, not one per request.
 ses = boto3.client("ses")
 ddb = boto3.client("dynamodb")
 
@@ -39,9 +42,10 @@ IDEMPOTENCY_TTL_HOURS = 24
 
 def lambda_handler(event, _context):
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
-    body = event.get("body") or ""
-    if event.get("isBase64Encoded"):
-        body = base64.b64decode(body).decode()
+    raw = event.get("body") or ""
+    body: bytes = (
+        base64.b64decode(raw) if event.get("isBase64Encoded") else raw.encode("utf-8")
+    )
 
     delivery_id = headers.get("x-delivery-id", "")
 
@@ -79,29 +83,37 @@ def lambda_handler(event, _context):
 
     subject, html, text = render_email(evt)
 
-    ses.send_email(
-        Source=FROM_ADDRESS,
-        Destination={"ToAddresses": [TO_ADDRESS]},
-        Message={
-            "Subject": {"Data": subject},
-            "Body": {
-                "Html": {"Data": html},
-                "Text": {"Data": text},
+    try:
+        ses.send_email(
+            Source=FROM_ADDRESS,
+            Destination={"ToAddresses": [TO_ADDRESS]},
+            Message={
+                "Subject": {"Data": subject},
+                "Body": {
+                    "Html": {"Data": html},
+                    "Text": {"Data": text},
+                },
             },
-        },
-    )
+        )
+    except Exception:
+        # Release the claim so the next retry can try again. Without this,
+        # any SES failure would silently lose the email -- the retry would
+        # find the delivery_id already claimed and ack it as a duplicate.
+        _release_delivery(delivery_id)
+        raise
+
     logger.info(
         "sent email (delivery_id=%s, event_type=%s)", delivery_id, event_type
     )
     return _resp(200, "sent")
 
 
-def _verify_signature(body: str, sig_header: str) -> bool:
+def _verify_signature(body: bytes, sig_header: str) -> bool:
     """Constant-time HMAC-SHA256 verification of the raw request body."""
     if not sig_header.startswith("sha256="):
         return False
     expected = sig_header[len("sha256="):]
-    mac = hmac.new(WEBHOOK_SECRET, body.encode(), hashlib.sha256).hexdigest()
+    mac = hmac.new(WEBHOOK_SECRET, body, hashlib.sha256).hexdigest()
     return hmac.compare_digest(mac, expected)
 
 
@@ -124,6 +136,24 @@ def _claim_delivery(delivery_id: str) -> bool:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             return False
         raise
+
+
+def _release_delivery(delivery_id: str) -> None:
+    """Best-effort delete of a claim row so a retry can re-attempt."""
+    try:
+        ddb.delete_item(
+            TableName=IDEMPOTENCY_TABLE,
+            Key={"delivery_id": {"S": delivery_id}},
+        )
+    except ClientError as e:
+        # If we can't release it, the retry will be ack'd as duplicate. Log
+        # loudly so it's visible in CloudWatch but don't mask the SES error
+        # this is unwinding from.
+        logger.error(
+            "failed to release claim after send error (delivery_id=%s): %s",
+            delivery_id,
+            e,
+        )
 
 
 def _resp(status: int, body: str):

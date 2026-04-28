@@ -150,3 +150,80 @@ def test_base64_body_is_decoded_before_verification(_mock_aws):
     resp = handler.lambda_handler(event, None)
     assert resp["statusCode"] == 200
     ses.send_email.assert_called_once()
+
+
+def test_ses_failure_releases_claim_and_propagates(_mock_aws):
+    """If SES fails, the claim must be released so the next retry can re-send.
+
+    Without this, every transient SES error would silently lose an email -- the
+    next webhook retry would find the delivery_id already claimed and return
+    200 'duplicate', and vesselapi would stop retrying.
+    """
+    ses, ddb = _mock_aws
+    ses.send_email.side_effect = ClientError(
+        {"Error": {"Code": "Throttling", "Message": "rate exceeded"}},
+        "SendEmail",
+    )
+    body = json.dumps(load_fixture("port_arrival"))
+
+    with pytest.raises(ClientError):
+        handler.lambda_handler(_api_event(body, signature=_sign(body)), None)
+
+    # Claim was placed, then released after the SES failure.
+    ddb.put_item.assert_called_once()
+    ddb.delete_item.assert_called_once()
+    delete_kwargs = ddb.delete_item.call_args.kwargs
+    assert delete_kwargs["Key"]["delivery_id"]["S"] == "deliv-001"
+
+
+def test_retry_after_ses_failure_succeeds(_mock_aws):
+    """First call fails inside SES, claim is released; second call succeeds.
+
+    This is the end-to-end shape of the retry contract: a transient SES
+    failure must NOT cause the retry to be ack'd as a duplicate.
+    """
+    ses, ddb = _mock_aws
+    body = json.dumps(load_fixture("port_arrival"))
+    event = _api_event(body, signature=_sign(body))
+
+    # First attempt: SES throws, handler raises after releasing the claim.
+    ses.send_email.side_effect = ClientError(
+        {"Error": {"Code": "ServiceUnavailable", "Message": "try again"}},
+        "SendEmail",
+    )
+    with pytest.raises(ClientError):
+        handler.lambda_handler(event, None)
+
+    assert ddb.put_item.call_count == 1
+    assert ddb.delete_item.call_count == 1
+
+    # Second attempt: SES recovers. The handler should NOT short-circuit as
+    # a duplicate, because the claim was released.
+    ses.send_email.side_effect = None
+    resp = handler.lambda_handler(event, None)
+
+    assert resp["statusCode"] == 200
+    assert resp["body"] == "sent"
+    # The retry placed a fresh claim and called SES.
+    assert ddb.put_item.call_count == 2
+    assert ses.send_email.call_count == 2
+
+
+def test_release_failure_does_not_mask_ses_error(_mock_aws):
+    """If releasing the claim also fails, the original SES error still surfaces."""
+    ses, ddb = _mock_aws
+    ses.send_email.side_effect = ClientError(
+        {"Error": {"Code": "Throttling", "Message": "rate exceeded"}},
+        "SendEmail",
+    )
+    ddb.delete_item.side_effect = ClientError(
+        {"Error": {"Code": "ProvisionedThroughputExceededException", "Message": "x"}},
+        "DeleteItem",
+    )
+    body = json.dumps(load_fixture("port_arrival"))
+
+    with pytest.raises(ClientError) as exc_info:
+        handler.lambda_handler(_api_event(body, signature=_sign(body)), None)
+
+    # The exception that surfaces should be the SES one, not the DDB one.
+    assert exc_info.value.response["Error"]["Code"] == "Throttling"

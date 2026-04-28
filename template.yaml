@@ -47,14 +47,13 @@ Resources:
         # DynamoDB is scoped to just this stack's table.
         - DynamoDBCrudPolicy:
             TableName: !Ref IdempotencyTable
-        # SES SendEmail uses Resource: '*' deliberately. The narrower
-        # ses:FromAddress / SourceArn condition forms are finicky to author
-        # correctly across regions and identity types; the verified-identity
-        # check at SES itself is the real authorisation boundary here.
+        # SES SendEmail is scoped to the verified FromAddress identity ARN,
+        # so a compromised function role can't be used to send mail from
+        # other identities in the account.
         - Statement:
             - Effect: Allow
               Action: ses:SendEmail
-              Resource: '*'
+              Resource: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${FromAddress}'
       Events:
         Webhook:
           Type: HttpApi
