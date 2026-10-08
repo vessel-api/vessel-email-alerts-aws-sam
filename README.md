@@ -47,16 +47,17 @@ scripts/
 - An email address verified in SES in your target region. The default region
   in `samconfig.toml.example` is `us-east-1`.
 - **A vesselapi API key on a plan that includes notifications.** Notifications
-  are not part of the free tier — you need at least the *Basic* plan. See
+  are not part of the free tier; you need at least the *Basic* plan. See
   the table below for what each tier allows.
 
 ### vesselapi notifications by plan
 
 | Plan    | Active notifications | Vessels per notification | Delivery channels  |
 |---------|----------------------|--------------------------|--------------------|
-| Free    | 0 (notifications disabled) | —                  | —                  |
+| Free    | 0 (notifications disabled) | n/a                | n/a                |
 | Basic   | up to 3              | up to 100                | webhook + WebSocket |
 | Starter | up to 5              | up to 100                | webhook + WebSocket |
+| Growth  | up to 10             | up to 100                | webhook + WebSocket |
 | Pro     | unlimited            | up to 100                | webhook + WebSocket |
 
 Pricing and the latest plan details: <https://vesselapi.com/pricing>. Sign up
